@@ -1,0 +1,133 @@
+#!/bin/bash
+set -o nounset
+
+parse () {
+    local mode="$1" eff flag1
+    shift
+    shiftnum=1
+    case "$mode" in
+    no)
+        eff="${1#--no-}"
+        ;;
+    2)
+        eff="${1#--}"
+        ;;
+    1)
+        eff="${1#-}"
+        ;;
+    *)
+        >&2 printf "error: unknown mode: %s\n" "$mode"
+        exit 1
+        ;;
+    esac
+    case "$eff,$mode" in
+    happy,2)
+        happy=1
+        ;;
+    happy,no)
+        happy=0
+        ;;
+    good,2)
+        good=1
+        ;;
+    good,no)
+        good=0
+        ;;
+    welcome,2)
+        welcome=1
+        ;;
+    welcome,no)
+        welcome=0
+        ;;
+    speak,2)
+        if test ! "${2-}"
+        then
+            >&2 printf "error: %s requires a value\n" "$eff"
+            exit 1
+        fi
+        speak="$2"
+        shiftnum=2
+        ;;
+    speak=*,2)
+        speak="${eff#speak=}"
+        ;;
+    speak,no)
+        speak=""
+        ;;
+    *,1)
+        while test ${#eff} -ge 1
+        do
+            flag1="${eff:0:1}"
+            eff="${eff#?}"
+            case "$flag1" in
+            h)
+                happy=1
+                ;;
+            g)
+                good=1
+                ;;
+            w)
+                welcome=1
+                ;;
+            s)
+                if test "$eff"
+                then
+                    speak="$eff"
+                    eff=""
+                elif test "${2-}"
+                then
+                    speak="$2"
+                    shiftnum=2
+                else
+                    >&2 printf "error: flag %s requires a value\n" "$flag1"
+                    exit 1
+                fi
+                ;;
+            *)
+                >&2 printf "error: invalid flag: %s\n" "$flag1"
+                exit 1
+                ;;
+            esac
+        done
+        ;;
+    *)
+        >&2 printf "error: invalid flag: %s\n" "$eff"
+        ;;
+    esac
+}
+
+main () {
+    local -i shiftnum=1
+    local args
+    local happy=0 good=1 welcome=1 speak=""
+    while test $# -ge 1
+    do
+        case "$1" in
+        --no-*)
+            parse no "$1"
+            shift $shiftnum
+            ;;
+        --*)
+            parse 2 "$@"
+            shift $shiftnum
+            ;;
+        -*)
+            parse 1 "$@"
+            shift $shiftnum
+            ;;
+        *)
+            args="${args-}'$1' "
+            shift
+            ;;
+        esac
+    done
+    printf "%10s %s\n" "flag" "value"
+    printf "%s\n" "---------------------"
+    printf "%10s %s\n" "happy" "$happy"
+    printf "%10s %s\n" "good" "$good"
+    printf "%10s %s\n" "welcome" "$welcome"
+    printf "%10s %s\n" "speak" "$speak"
+    printf "%10s %s\n" "other:" "${args-}"
+}
+
+main "$@"
